@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NTVCourses\Requests\Curl;
 
+use NTVCourses\Logs\LogEntry;
+use NTVCourses\Logs\ErrorEntry;
+
 abstract class CurlRequest
 {
     protected readonly \CurlHandle $handle;
@@ -24,14 +27,21 @@ abstract class CurlRequest
         $response = curl_exec($this->handle);
         
         if (curl_errno($this->handle)) {
-            error_log(sprintf(
-                "cURL request failed: %s",
-                curl_error($this->handle)
-            ));
+            (new ErrorEntry(
+                message: curl_error($this->handle),
+                type: 'CURL',
+                url: curl_getinfo($this->handle, CURLINFO_EFFECTIVE_URL)
+            ))->write();
+            
             $response = null;
         }
         
         curl_close($this->handle);
         return $response !== false ? $response : null;
+    }
+
+    protected function logRequest(string $method, string $url, ?array $data, ?string $response): void
+    {
+        (new LogEntry($method, $url, $data, $response))->write();
     }
 }
