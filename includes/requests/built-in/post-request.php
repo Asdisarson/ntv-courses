@@ -9,5 +9,6 @@ function builtInPostRequest($url, $data) {
     ];
     $context  = stream_context_create($options);
     $result = file_get_contents($url, false, $context);
+    logRequest('POST', $url, $data, $result);
     return $result;
 }

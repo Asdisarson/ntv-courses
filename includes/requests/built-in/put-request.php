@@ -9,5 +9,6 @@ function builtInPutRequest($url, $data) {
     ];
     $context  = stream_context_create($options);
     $result = file_get_contents($url, false, $context);
+    logRequest('PUT', $url, $data, $result);
     return $result;
 }

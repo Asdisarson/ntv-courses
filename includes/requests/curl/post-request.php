@@ -6,5 +6,6 @@ function curlPostRequest($url, $data) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     $response = curl_exec($ch);
     curl_close($ch);
+    logRequest('POST', $url, $data, $response);
     return $response;
 }

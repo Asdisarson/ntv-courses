@@ -6,5 +6,6 @@ function curlPutRequest($url, $data) {
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     $response = curl_exec($ch);
     curl_close($ch);
+    logRequest('PUT', $url, $data, $response);
     return $response;
 }
