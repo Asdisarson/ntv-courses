@@ -1,14 +1,28 @@
 <?php
-function curlGetRequest($url) {
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    $response = curl_exec($ch);
-    if (curl_errno($ch)) {
-        error_log("cURL GET request failed: " . curl_error($ch));
-        $response = null;
+
+declare(strict_types=1);
+
+namespace NTVCourses\Requests\Curl;
+
+final class GetRequest extends CurlRequest
+{
+    public function execute(string $url): string|null
+    {
+        $this->initializeCurl($url);
+        
+        curl_setopt_array($this->handle, [
+            CURLOPT_HTTPGET => true,
+            CURLOPT_HTTPHEADER => [
+                'Accept: application/json'
+            ]
+        ]);
+        
+        $response = $this->executeRequest();
+        
+        if ($response !== null) {
+            $this->logRequest('GET', $url, null, $response);
+        }
+        
+        return $response;
     }
-    curl_close($ch);
-    logRequest('GET', $url, null, $response);
-    return $response;
 }

@@ -1,15 +1,30 @@
 <?php
-function curlPutRequest($url, $data) {
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    $response = curl_exec($ch);
-    if (curl_errno($ch)) {
-        error_log("cURL PUT request failed: " . curl_error($ch));
-        $response = null;
+
+declare(strict_types=1);
+
+namespace NTVCourses\Requests\Curl;
+
+final class PutRequest extends CurlRequest
+{
+    public function execute(string $url, array $data): string|null
+    {
+        $this->initializeCurl($url);
+        
+        curl_setopt_array($this->handle, [
+            CURLOPT_CUSTOMREQUEST => 'PUT',
+            CURLOPT_POSTFIELDS => http_build_query($data),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/x-www-form-urlencoded',
+                'Accept: application/json'
+            ]
+        ]);
+        
+        $response = $this->executeRequest();
+        
+        if ($response !== null) {
+            $this->logRequest('PUT', $url, $data, $response);
+        }
+        
+        return $response;
     }
-    curl_close($ch);
-    logRequest('PUT', $url, $data, $response);
-    return $response;
 }
