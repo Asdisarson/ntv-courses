@@ -1,8 +1,16 @@
 <?php
 function builtInGetRequest($url) {
-    $response = file_get_contents($url);
-    logRequest('GET', $url, null, $response);
-    return $response;
+    try {
+        $response = file_get_contents($url);
+        if ($response === FALSE) {
+            throw new Exception("Failed to GET data from $url");
+        }
+        logRequest('GET', $url, null, $response);
+        return $response;
+    } catch (Exception $e) {
+        error_log($e->getMessage());
+        return null;
+    }
 }
 
 function logRequest($method, $url, $data, $response) {
