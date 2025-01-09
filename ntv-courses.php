@@ -11,11 +11,17 @@ if (!defined('ABSPATH')) {
 }
 
 function ntv_courses_init() {
-    add_action('init', 'ntv_courses_setup_schedule');
-    add_action('ntv_weekly_course_update', 'ntv_courses_update');
-    
-    // Run initial update
-    ntv_courses_update();
+    try {
+        add_action('init', 'ntv_courses_setup_schedule');
+        add_action('ntv_weekly_course_update', 'ntv_courses_update');
+        
+        // Run initial update with error handling
+        if (isset($_GET['run_update'])) {
+            ntv_courses_update();
+        }
+    } catch (Exception $e) {
+        ntv_courses_log_error("Initialization error: " . $e->getMessage());
+    }
 }
 
 function ntv_courses_setup_schedule() {
@@ -26,6 +32,9 @@ function ntv_courses_setup_schedule() {
 
 function ntv_courses_update() {
     try {
+        // Add debug logging
+        ntv_courses_log_error("Starting course update process...");
+        
         $xml_response = ntv_courses_fetch_data();
         if (!$xml_response) {
             throw new Exception('Failed to fetch course data');
@@ -34,17 +43,33 @@ function ntv_courses_update() {
         // Create directories
         $base_dir = wp_upload_dir()['basedir'] . '/courses';
         $responses_dir = $base_dir . '/responses';
-        wp_mkdir_p($responses_dir);
+        
+        // Check directory permissions
+        if (!is_dir($base_dir) && !wp_mkdir_p($base_dir)) {
+            throw new Exception("Failed to create directory: $base_dir");
+        }
+        if (!is_dir($responses_dir) && !wp_mkdir_p($responses_dir)) {
+            throw new Exception("Failed to create directory: $responses_dir");
+        }
 
         $temp_xml_path = $base_dir . '/temp.xml';
         $csv_path = $base_dir . '/courses.csv';
 
+        // Check write permissions
+        if (!is_writable(dirname($temp_xml_path))) {
+            throw new Exception("Directory not writable: " . dirname($temp_xml_path));
+        }
+
         // Save initial courses XML response
         $response_file = $responses_dir . '/courses_' . date('Y-m-d_H-i-s') . '.xml';
-        file_put_contents($response_file, $xml_response);
+        if (file_put_contents($response_file, $xml_response) === false) {
+            throw new Exception("Failed to write response file: $response_file");
+        }
 
         // Save XML response to temporary file for processing
-        file_put_contents($temp_xml_path, $xml_response);
+        if (file_put_contents($temp_xml_path, $xml_response) === false) {
+            throw new Exception("Failed to write temporary XML file: $temp_xml_path");
+        }
 
         // Convert XML to CSV
         if (!ntv_courses_convert_to_csv($temp_xml_path, $csv_path)) {
@@ -52,54 +77,74 @@ function ntv_courses_update() {
         }
 
         // Clean up temporary XML file
-        unlink($temp_xml_path);
+        if (file_exists($temp_xml_path)) {
+            unlink($temp_xml_path);
+        }
+
+        ntv_courses_log_error("Course update completed successfully");
 
     } catch (Exception $e) {
-        ntv_courses_log_error($e->getMessage());
-        throw $e; // Re-throw to allow caller to handle the error
+        ntv_courses_log_error("Critical error in course update: " . $e->getMessage());
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            ntv_courses_log_error("Stack trace: " . $e->getTraceAsString());
+        }
     }
 }
 
 function ntv_courses_fetch_data() {
-    $soap_url = 'https://extranet.qa.com/Services/Courses.svc';
-    $api_key = 'ABA1665B-58B6-4FBD-BD70-F2349799C77F';
+    try {
+        ntv_courses_log_error("Fetching course data...");
+        
+        $soap_url = 'https://extranet.qa.com/Services/Courses.svc';
+        $api_key = 'ABA1665B-58B6-4FBD-BD70-F2349799C77F';
 
-    $soap_envelope = sprintf(
-        '<?xml version="1.0" encoding="UTF-8"?>
-        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
-            <soapenv:Header/>
-            <soapenv:Body>
-                <tem:GetAllCourses>
-                    <tem:key>%s</tem:key>
-                    <tem:version>1</tem:version>
-                </tem:GetAllCourses>
-            </soapenv:Body>
-        </soapenv:Envelope>',
-        $api_key
-    );
+        $soap_envelope = sprintf(
+            '<?xml version="1.0" encoding="UTF-8"?>
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
+                <soapenv:Header/>
+                <soapenv:Body>
+                    <tem:GetAllCourses>
+                        <tem:key>%s</tem:key>
+                        <tem:version>1</tem:version>
+                    </tem:GetAllCourses>
+                </soapenv:Body>
+            </soapenv:Envelope>',
+            $api_key
+        );
 
-    $curl = curl_init();
-    curl_setopt_array($curl, [
-        CURLOPT_URL => $soap_url,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => $soap_envelope,
-        CURLOPT_HTTPHEADER => [
-            'Content-Type: text/xml; charset=utf-8',
-            'SOAPAction: http://tempuri.org/Courses/GetAllCourses'
-        ]
-    ]);
+        $curl = curl_init();
+        curl_setopt_array($curl, [
+            CURLOPT_URL => $soap_url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $soap_envelope,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: text/xml; charset=utf-8',
+                'SOAPAction: http://tempuri.org/Courses/GetAllCourses'
+            ]
+        ]);
 
-    $response = curl_exec($curl);
-    $error = curl_error($curl);
-    curl_close($curl);
+        $response = curl_exec($curl);
+        $error = curl_error($curl);
+        curl_close($curl);
 
-    if ($error) {
-        ntv_courses_log_error("CURL Error: $error");
+        if ($error) {
+            ntv_courses_log_error("CURL Error: $error");
+            return null;
+        }
+
+        if (!$response) {
+            ntv_courses_log_error("Empty response received from API");
+            return null;
+        }
+
+        ntv_courses_log_error("Course data fetched successfully");
+        return $response;
+
+    } catch (Exception $e) {
+        ntv_courses_log_error("Error in fetch_data: " . $e->getMessage());
         return null;
     }
-
-    return $response;
 }
 
 function ntv_courses_convert_to_csv($xml_path, $csv_path) {
@@ -272,20 +317,33 @@ function ntv_courses_fetch_events($course_code) {
 }
 
 function ntv_courses_log_error($message) {
-    $log_dir = wp_upload_dir()['basedir'] . '/courses/logs';
-    wp_mkdir_p($log_dir);
-    
-    $log_entry = sprintf(
-        "[%s] %s\n",
-        date('Y-m-d H:i:s'),
-        $message
-    );
-    
-    file_put_contents(
-        $log_dir . '/error.log',
-        $log_entry,
-        FILE_APPEND | LOCK_EX
-    );
+    try {
+        $log_dir = wp_upload_dir()['basedir'] . '/courses/logs';
+        
+        // Ensure log directory exists
+        if (!is_dir($log_dir) && !wp_mkdir_p($log_dir)) {
+            error_log("NTV Courses: Failed to create log directory: $log_dir");
+            return;
+        }
+        
+        $log_entry = sprintf(
+            "[%s] %s\n",
+            date('Y-m-d H:i:s'),
+            $message
+        );
+        
+        $log_file = $log_dir . '/error.log';
+        
+        if (file_put_contents(
+            $log_file,
+            $log_entry,
+            FILE_APPEND | LOCK_EX
+        ) === false) {
+            error_log("NTV Courses: Failed to write to log file: $log_file");
+        }
+    } catch (Exception $e) {
+        error_log("NTV Courses logging error: " . $e->getMessage());
+    }
 }
 
 // Initialize the plugin
