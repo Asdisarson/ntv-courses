@@ -1,0 +1,127 @@
+<Courses diffgr:id="Courses1" msdata:rowOrder="0">
+                            <code>AD183</code>
+                            <title>Red Hat Application Development I: Programming in Java EE</title>
+                            <listPrice>2020.00</listPrice>
+                            <duration>4.00</duration>
+                            <practice>IT</practice>
+                            <subject>Red Hat App Development</subject>
+                            <vendor>Red Hat</vendor>
+                            <techType>Specialist</techType>
+                            <overview>&lt;p&gt;
+	Red Hat Application Development I: Programming in Java EE (JB183) exposes experienced Java Standard Edition (Java SE) developers to the world of Java Enterprise Edition (Java EE).&lt;/p&gt;
+&lt;p&gt;
+	This course is based on Red Hat&amp;reg; Enterprise Application Platform 7.0.&lt;/p&gt;
+&lt;p&gt;
+	In this course, you will learn about the various specifications that make up Java EE. Through hands-on labs, you will transform a simple Java SE command line application into a multi-tiered enterprise application using various Java EE specifications, including Enterprise Java Beans, Java Persistence API, Java Messaging Service, JAX-RS for REST services, Contexts and Dependency Injection (CDI), and JAAS for securing the application.&lt;/p&gt;
+&lt;h3&gt;
+	Target Audience&lt;/h3&gt;
+&lt;p&gt;
+	This course is designed for Java developers who want to learn more about the specifications that comprise the world of Java Enterprise Edition (Java EE).&lt;/p&gt;
+</overview>
+                            <prerequisites>&lt;ul&gt;
+	&lt;li&gt;
+		Proficiency in developing Java SE applications, with 2+ years of experience required&lt;/li&gt;
+	&lt;li&gt;
+		Proficiency in using an IDE such as Red Hat Developer Studio or Eclipse&lt;/li&gt;
+	&lt;li&gt;
+		Experience with Maven is recommended but not required&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;
+	Please note: In order to provision you with your courseware and lab access for this course QA must share several items of basic personal information with our partner (usually your full name and email address). For more information on this please visit our &lt;a href="https://www.qa.com/legal/partner-data-sharing-statement"&gt;QA Partner data sharing page&lt;/a&gt;. If you have any questions or concerns please contact your QA account manager.&lt;/p&gt;
+</prerequisites>
+                            <objectives>&lt;p&gt;
+	Course content summary&lt;/p&gt;
+&lt;ul&gt;
+	&lt;li&gt;
+		Generating multi-tiered Java EE applications.&lt;/li&gt;
+	&lt;li&gt;
+		Packaging and deploying Java EE applications.&lt;/li&gt;
+	&lt;li&gt;
+		Creating Enterprise Java Beans, including message-driven beans.&lt;/li&gt;
+	&lt;li&gt;
+		Managing persistence.&lt;/li&gt;
+	&lt;li&gt;
+		Creating REST services with JAX-RS.&lt;/li&gt;
+	&lt;li&gt;
+		Implementing Contexts and Dependency Injection.&lt;/li&gt;
+	&lt;li&gt;
+		Creating messaging applications with JMS.&lt;/li&gt;
+	&lt;li&gt;
+		Securing Java EE applications with JAAS.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;
+	Impact on the organization&lt;/h3&gt;
+&lt;p&gt;
+	This course is intended to develop the skills needed to make the transition from Java SE programming to Java EE programming. This course introduces core concepts of multi-tiered Java Enterprise applications and gives you experience writing, deploying, and testing Java EE applications. You will use various tools from the Red Hat JBoss middleware portfolio, including JBoss Developer Studio, Maven, and the JBoss Enterprise Application Platform application server.&lt;/p&gt;
+&lt;p&gt;
+	Red Hat has created this course in a way intended to benefit our customers, but each company and infrastructure is unique, and actual results or benefits may vary.&lt;/p&gt;
+&lt;h3&gt;
+	Impact on the individual&lt;/h3&gt;
+&lt;p&gt;
+	As a result of attending this course, you should be able to describe most of the specifications in Java EE 7 and create a component with each specification. You will be able to convert a Java SE program into a multi-tiered Java EE application. You should be able to demonstrate these skills:&lt;/p&gt;
+&lt;ul&gt;
+	&lt;li&gt;
+		Describe the architecture of multi-tiered Java EE applications.&lt;/li&gt;
+	&lt;li&gt;
+		Package Java EE applications and deploy to Red Hat JBoss Enterprise Application Platform with various tools.&lt;/li&gt;
+	&lt;li&gt;
+		Create an Enterprise Java Bean instance.&lt;/li&gt;
+	&lt;li&gt;
+		Manage the persistence of data using Java Persistence API.&lt;/li&gt;
+	&lt;li&gt;
+		Create a web service using JAX-RS.&lt;/li&gt;
+	&lt;li&gt;
+		Properly apply context scopes to beans and inject resources into Java Beans.&lt;/li&gt;
+	&lt;li&gt;
+		Store and retrieve messages using the Java Messaging Service.&lt;/li&gt;
+	&lt;li&gt;
+		Secure a Java EE application.&lt;/li&gt;
+&lt;/ul&gt;
+</objectives>
+                            <outline>&lt;p&gt;
+	&lt;strong&gt;Transition to multi-tiered applications&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;
+	Describe Java EE features and distinguish between Java EE and Java SE applications.&lt;/p&gt;
+&lt;p&gt;
+	&lt;strong&gt;Package and deploying applications to an application server&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;
+	Describe the architecture of a Java EE application server, package an application, and deploy the application to an EAP server.&lt;/p&gt;
+&lt;p&gt;
+	&lt;strong&gt;Create Enterprise Java Beans&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;
+	Develop Enterprise Java Beans, including message-driven beans.&lt;/p&gt;
+&lt;p&gt;
+	&lt;strong&gt;Manage persistence&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;
+	Create persistence entities with validations.&lt;/p&gt;
+&lt;p&gt;
+	Manage entity relationships&lt;/p&gt;
+&lt;p&gt;
+	Define and manage JPA entity relationships.&lt;/p&gt;
+&lt;p&gt;
+	&lt;strong&gt;Create REST services&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;
+	Create REST APIs using the JAX-RS specification.&lt;/p&gt;
+&lt;p&gt;
+	&lt;strong&gt;Implement Contexts and Dependency Injection&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;
+	Describe typical use cases for using CDI and successfully implement it in an application.&lt;/p&gt;
+&lt;p&gt;
+	&lt;strong&gt;Create messaging applications with JMS&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;
+	Create messaging clients that send and receive messages using the JMS API.&lt;/p&gt;
+&lt;p&gt;
+	Secure Java EE applications&lt;/p&gt;
+&lt;p&gt;
+	Use JAAS to secure a Java EE application.&lt;/p&gt;
+&lt;p&gt;
+	&lt;strong&gt;Comprehensive review of Red Hat JBoss Development I: Java EE&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;
+	Demonstrate proficiency of the knowledge and skills obtained during the course.&lt;/p&gt;
+&lt;p&gt;
+	&lt;strong&gt;Note: &lt;/strong&gt;Course outline is subject to change with technology advances and as the nature of the underlying job evolves. For questions or confirmation on a specific objective or topic, contact a training specialist online.&lt;/p&gt;
+</outline>
+                            <specialNotices>&lt;p&gt;
+	In order to attend any Red Hat course or exam, you will need to provide us with your unique Red Hat Network ID. Bookings will not be confirmed without this. If you do not have a Red Hat Network ID you can create one online. If you attend a virtual event, Red Hat will email you directly a Connectivity Test link one week before the course starts to ensure you have the correct access for the training.&lt;/p&gt;
+</specialNotices>
+                        </Courses>

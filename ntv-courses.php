@@ -112,17 +112,42 @@ function ntv_courses_convert_to_csv($xml_path, $csv_path) {
         // Write UTF-8 BOM
         fwrite($fp, "\xEF\xBB\xBF");
 
-        // Extract and write headers
+        // Extract and write headers with additional event columns
         $first_course = current($courses);
         $headers = array_keys(get_object_vars($first_course));
+        $headers = array_merge($headers, ['EventDates', 'EventLocations', 'EventPrices']);
         fputcsv($fp, $headers);
 
         // Write data
         foreach ($courses as $course) {
             $row = [];
             foreach ($headers as $header) {
+                if (in_array($header, ['EventDates', 'EventLocations', 'EventPrices'])) {
+                    continue; // We'll add these values after getting course events
+                }
                 $row[] = (string)$course->$header;
             }
+            
+            // Fetch events for this course
+            $events = ntv_courses_fetch_events((string)$course->CourseCode);
+            
+            // Add event information
+            $event_dates = [];
+            $event_locations = [];
+            $event_prices = [];
+            
+            if ($events) {
+                foreach ($events as $event) {
+                    $event_dates[] = $event['date'];
+                    $event_locations[] = $event['location'];
+                    $event_prices[] = $event['price'];
+                }
+            }
+            
+            $row[] = implode('|', $event_dates);
+            $row[] = implode('|', $event_locations);
+            $row[] = implode('|', $event_prices);
+            
             fputcsv($fp, $row);
         }
 
@@ -132,6 +157,72 @@ function ntv_courses_convert_to_csv($xml_path, $csv_path) {
     } catch (Exception $e) {
         ntv_courses_log_error("XML to CSV conversion failed: " . $e->getMessage());
         return false;
+    }
+}
+
+function ntv_courses_fetch_events($course_code) {
+    $soap_url = 'https://extranet.qa.com/Services/Events.svc';
+    $api_key = 'ABA1665B-58B6-4FBD-BD70-F2349799C77F';
+
+    $soap_envelope = sprintf(
+        '<?xml version="1.0" encoding="UTF-8"?>
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
+            <soapenv:Header/>
+            <soapenv:Body>
+                <tem:GetEventsByCourseCode>
+                    <tem:key>%s</tem:key>
+                    <tem:courseCode>%s</tem:courseCode>
+                    <tem:version>2</tem:version>
+                </tem:GetEventsByCourseCode>
+            </soapenv:Body>
+        </soapenv:Envelope>',
+        $api_key,
+        $course_code
+    );
+
+    $curl = curl_init();
+    curl_setopt_array($curl, [
+        CURLOPT_URL => $soap_url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $soap_envelope,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: text/xml; charset=utf-8',
+            'SOAPAction: http://tempuri.org/Events/GetEventsByCourseCode'
+        ]
+    ]);
+
+    $response = curl_exec($curl);
+    $error = curl_error($curl);
+    curl_close($curl);
+
+    if ($error) {
+        ntv_courses_log_error("CURL Error fetching events for course $course_code: $error");
+        return null;
+    }
+
+    try {
+        $xml = new SimpleXMLElement($response);
+        $events = $xml->xpath('//Events');
+        
+        if (empty($events)) {
+            return [];
+        }
+
+        $formatted_events = [];
+        foreach ($events as $event) {
+            $formatted_events[] = [
+                'date' => (string)$event->StartDate,
+                'location' => (string)$event->Location,
+                'price' => (string)$event->Price
+            ];
+        }
+
+        return $formatted_events;
+
+    } catch (Exception $e) {
+        ntv_courses_log_error("Error parsing events for course $course_code: " . $e->getMessage());
+        return null;
     }
 }
 
