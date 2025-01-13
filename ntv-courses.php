@@ -272,111 +272,142 @@ function ntv_merge_data() {
     
     ntv_log_message('Raw courses content length: ' . strlen($courses_content));
     ntv_log_message('Raw events content length: ' . strlen($events_content));
-    
-    // Extract data from SOAP responses
-    $courses_content = preg_replace('/<s:Envelope[^>]*>.*?<GetAllCoursesResult>(.*?)<\/GetAllCoursesResult>.*?<\/s:Envelope>/s', '$1', $courses_content);
-    $events_content = preg_replace('/<s:Envelope[^>]*>.*?<GetAllEventsResult>(.*?)<\/GetAllEventsResult>.*?<\/s:Envelope>/s', '$1', $events_content);
-    
-    ntv_log_message('Extracted courses content length: ' . strlen($courses_content));
-    ntv_log_message('Extracted events content length: ' . strlen($events_content));
-    
-    // Save extracted content for debugging
-    file_put_contents($import_dir . '/debug_courses.xml', $courses_content);
-    file_put_contents($import_dir . '/debug_events.xml', $events_content);
-    
-    // Load XML
-    $courses_xml = simplexml_load_string($courses_content);
-    $events_xml = simplexml_load_string($events_content);
 
-    if (!$courses_xml || !$events_xml) {
+    // Extract data from SOAP responses using more precise patterns
+    if (preg_match('/<DocumentElement[^>]*>(.*?)<\/DocumentElement>/s', $courses_content, $courses_matches)) {
+        $courses_content = $courses_matches[1];
+        ntv_log_message('Successfully extracted courses data');
+    } else {
+        ntv_log_message('Failed to extract courses data from SOAP response');
+        return false;
+    }
+
+    if (preg_match('/<DocumentElement[^>]*>(.*?)<\/DocumentElement>/s', $events_content, $events_matches)) {
+        $events_content = $events_matches[1];
+        ntv_log_message('Successfully extracted events data');
+    } else {
+        ntv_log_message('Failed to extract events data from SOAP response');
+        return false;
+    }
+
+    // Create valid XML documents for parsing
+    $courses_content = '<?xml version="1.0" encoding="UTF-8"?><root>' . $courses_content . '</root>';
+    $events_content = '<?xml version="1.0" encoding="UTF-8"?><root>' . $events_content . '</root>';
+
+    // Try to load the extracted XML
+    $courses_xml = simplexml_load_string($courses_content);
+    if (!$courses_xml) {
+        ntv_log_message('Failed to parse courses XML');
         $errors = libxml_get_errors();
         foreach ($errors as $error) {
-            ntv_log_message("XML Error: " . $error->message . " at line " . $error->line);
+            ntv_log_message("Courses XML Error: " . $error->message . " at line " . $error->line);
         }
         libxml_clear_errors();
         return false;
     }
 
-    // Track duplicates
-    $course_codes = array();
-    $event_ids = array();
-    $duplicates_found = false;
-
-    // Check for duplicate courses
-    foreach ($courses_xml->xpath('//Courses') as $course) {
-        $code = (string)$course->code;
-        if (isset($course_codes[$code])) {
-            ntv_log_message("Duplicate course found: " . $code);
-            $duplicates_found = true;
+    $events_xml = simplexml_load_string($events_content);
+    if (!$events_xml) {
+        ntv_log_message('Failed to parse events XML');
+        $errors = libxml_get_errors();
+        foreach ($errors as $error) {
+            ntv_log_message("Events XML Error: " . $error->message . " at line " . $error->line);
         }
-        $course_codes[$code] = true;
-    }
-
-    // Check for duplicate events
-    foreach ($events_xml->xpath('//Events') as $event) {
-        $id = (int)$event->id;
-        if (isset($event_ids[$id])) {
-            ntv_log_message("Duplicate event found: " . $id);
-            $duplicates_found = true;
-        }
-        $event_ids[$id] = true;
-    }
-
-    if ($duplicates_found) {
-        ntv_log_message('Duplicates found - check logs for details');
-    }
-
-    // Create merged XML
-    $merged_xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><data></data>');
-    $courses_node = $merged_xml->addChild('courses');
-    $events_node = $merged_xml->addChild('events');
-
-    // Add unique courses
-    $course_count = 0;
-    foreach ($courses_xml->xpath('//Courses') as $course) {
-        $code = (string)$course->code;
-        if (isset($course_codes[$code])) {
-            $course_node = $courses_node->addChild('course');
-            foreach ($course->children() as $child) {
-                $course_node->addChild($child->getName(), htmlspecialchars((string)$child));
-            }
-            unset($course_codes[$code]); // Ensure we only add it once
-            $course_count++;
-        }
-    }
-    ntv_log_message("Added {$course_count} unique courses");
-
-    // Add unique events with matching courses
-    $event_count = 0;
-    foreach ($events_xml->xpath('//Events') as $event) {
-        $id = (int)$event->id;
-        $code = (string)$event->code;
-        if (isset($event_ids[$id]) && isset($course_codes[$code])) {
-            $event_node = $events_node->addChild('event');
-            foreach ($event->children() as $child) {
-                $event_node->addChild($child->getName(), htmlspecialchars((string)$child));
-            }
-            unset($event_ids[$id]); // Ensure we only add it once
-            $event_count++;
-        }
-    }
-    ntv_log_message("Added {$event_count} unique events");
-
-    // Save merged file
-    $merged_content = $merged_xml->asXML();
-    ntv_log_message('Merged content length: ' . strlen($merged_content));
-    
-    if (!file_put_contents($final_file, $merged_content)) {
-        ntv_log_message('Failed to save merged file');
+        libxml_clear_errors();
         return false;
     }
 
-    // Clean up temp files
-    @unlink($temp_courses);
-    @unlink($temp_events);
-    
-    ntv_log_message('Merge completed successfully');
-    return true;
+    // Store course data indexed by code
+    $course_data = array();
+    foreach ($courses_xml->xpath('//Courses') as $course) {
+        $code = (string)$course->code;
+        $course_data[$code] = $course;
+    }
+    ntv_log_message("Processed " . count($course_data) . " courses");
+
+    try {
+        // Create merged XML with a single root
+        $merged_xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><data></data>');
+
+        // Add merged events with course data
+        $event_count = 0;
+        foreach ($events_xml->xpath('//Events') as $event) {
+            $code = (string)$event->code;
+            if (isset($course_data[$code])) {
+                $course = $course_data[$code];
+                
+                $merged_node = $merged_xml->addChild('item');
+                
+                // Add event data
+                $merged_node->addChild('event_id', (int)$event->id);
+                $merged_node->addChild('event_masterId', (int)$event->masterId);
+                $merged_node->addChild('code', htmlspecialchars($code));
+                $merged_node->addChild('event_start', htmlspecialchars((string)$event->start));
+                $merged_node->addChild('event_end', htmlspecialchars((string)$event->end));
+                $merged_node->addChild('event_locationId', (int)$event->locationId);
+                $merged_node->addChild('event_locationName', htmlspecialchars((string)$event->locationName));
+                $merged_node->addChild('event_rRP', (float)$event->rRP);
+                $merged_node->addChild('event_yourRRP', (float)$event->yourRRP);
+                $merged_node->addChild('event_duration', (float)$event->duration);
+                $merged_node->addChild('event_includesWeekends', htmlspecialchars((string)$event->includesWeekends));
+                $merged_node->addChild('event_residential', htmlspecialchars((string)$event->residential));
+                $merged_node->addChild('event_availability', htmlspecialchars((string)$event->availability));
+                $merged_node->addChild('event_bookable', htmlspecialchars((string)$event->bookable));
+                
+                // Add course data
+                $merged_node->addChild('course_title', htmlspecialchars((string)$course->title));
+                $merged_node->addChild('course_listPrice', (float)$course->listPrice);
+                $merged_node->addChild('course_duration', (float)$course->duration);
+                $merged_node->addChild('course_practice', htmlspecialchars((string)$course->practice));
+                $merged_node->addChild('course_subject', htmlspecialchars((string)$course->subject));
+                $merged_node->addChild('course_vendor', htmlspecialchars((string)$course->vendor));
+                $merged_node->addChild('course_techType', htmlspecialchars((string)$course->techType));
+                
+                // Add HTML content with CDATA
+                $overview = $merged_node->addChild('course_overview');
+                $overview_cdata = dom_import_simplexml($overview);
+                $overview_cdata->appendChild($overview_cdata->ownerDocument->createCDATASection((string)$course->overview));
+                
+                $prerequisites = $merged_node->addChild('course_prerequisites');
+                $prerequisites_cdata = dom_import_simplexml($prerequisites);
+                $prerequisites_cdata->appendChild($prerequisites_cdata->ownerDocument->createCDATASection((string)$course->prerequisites));
+                
+                $objectives = $merged_node->addChild('course_objectives');
+                $objectives_cdata = dom_import_simplexml($objectives);
+                $objectives_cdata->appendChild($objectives_cdata->ownerDocument->createCDATASection((string)$course->objectives));
+                
+                $outline = $merged_node->addChild('course_outline');
+                $outline_cdata = dom_import_simplexml($outline);
+                $outline_cdata->appendChild($outline_cdata->ownerDocument->createCDATASection((string)$course->outline));
+                
+                $specialNotices = $merged_node->addChild('course_specialNotices');
+                $specialNotices_cdata = dom_import_simplexml($specialNotices);
+                $specialNotices_cdata->appendChild($specialNotices_cdata->ownerDocument->createCDATASection((string)$course->specialNotices));
+                
+                $event_count++;
+            }
+        }
+        ntv_log_message("Added {$event_count} merged items");
+
+        // Save merged file
+        $merged_content = $merged_xml->asXML();
+        ntv_log_message('Merged content length: ' . strlen($merged_content));
+        
+        if (!file_put_contents($final_file, $merged_content)) {
+            ntv_log_message('Failed to save merged file');
+            return false;
+        }
+
+        // Clean up temp files
+        @unlink($temp_courses);
+        @unlink($temp_events);
+        
+        ntv_log_message('Merge completed successfully');
+        return true;
+    } catch (Exception $e) {
+        ntv_log_message('Error during merge: ' . $e->getMessage());
+        return false;
+    }
 }
 
 // Plugin deactivation
