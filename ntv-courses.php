@@ -28,7 +28,23 @@ function ntv_display_logs() {
     <div class="wrap">
         <h1>NTV Import Logs</h1>
         <div class="ntv-logs">
+            <form method="post">
+                <?php wp_nonce_field('ntv_clear_logs', 'ntv_clear_logs_nonce'); ?>
+                <input type="submit" name="clear_logs" class="button button-secondary" value="Clear Logs" />
+                <input type="submit" name="run_import" class="button button-primary" value="Run Import Now" />
+            </form>
+            <hr />
             <?php
+            // Handle form submissions
+            if (isset($_POST['clear_logs']) && check_admin_referer('ntv_clear_logs', 'ntv_clear_logs_nonce')) {
+                delete_option('ntv_import_logs');
+                echo '<div class="notice notice-success"><p>Logs cleared successfully.</p></div>';
+            }
+            if (isset($_POST['run_import']) && check_admin_referer('ntv_clear_logs', 'ntv_clear_logs_nonce')) {
+                ntv_run_import_process();
+                echo '<div class="notice notice-info"><p>Import process started.</p></div>';
+            }
+
             $logs = get_option('ntv_import_logs', array());
             if (empty($logs)) {
                 echo '<p>No logs available yet.</p>';
@@ -241,6 +257,12 @@ function ntv_merge_data() {
     $temp_events = $import_dir . '/temp_events.xml';
     $final_file = $import_dir . '/courses.xml';
 
+    // Check if both files exist
+    if (!file_exists($temp_courses) || !file_exists($temp_events)) {
+        ntv_log_message('One or both temp files missing');
+        return false;
+    }
+
     // Enable user error handling
     libxml_use_internal_errors(true);
 
@@ -248,16 +270,30 @@ function ntv_merge_data() {
     $courses_content = file_get_contents($temp_courses);
     $events_content = file_get_contents($temp_events);
     
+    ntv_log_message('Raw courses content length: ' . strlen($courses_content));
+    ntv_log_message('Raw events content length: ' . strlen($events_content));
+    
     // Extract data from SOAP responses
     $courses_content = preg_replace('/<s:Envelope[^>]*>.*?<GetAllCoursesResult>(.*?)<\/GetAllCoursesResult>.*?<\/s:Envelope>/s', '$1', $courses_content);
     $events_content = preg_replace('/<s:Envelope[^>]*>.*?<GetAllEventsResult>(.*?)<\/GetAllEventsResult>.*?<\/s:Envelope>/s', '$1', $events_content);
+    
+    ntv_log_message('Extracted courses content length: ' . strlen($courses_content));
+    ntv_log_message('Extracted events content length: ' . strlen($events_content));
+    
+    // Save extracted content for debugging
+    file_put_contents($import_dir . '/debug_courses.xml', $courses_content);
+    file_put_contents($import_dir . '/debug_events.xml', $events_content);
     
     // Load XML
     $courses_xml = simplexml_load_string($courses_content);
     $events_xml = simplexml_load_string($events_content);
 
     if (!$courses_xml || !$events_xml) {
-        ntv_log_message('Failed to parse XML data');
+        $errors = libxml_get_errors();
+        foreach ($errors as $error) {
+            ntv_log_message("XML Error: " . $error->message . " at line " . $error->line);
+        }
+        libxml_clear_errors();
         return false;
     }
 
@@ -296,6 +332,7 @@ function ntv_merge_data() {
     $events_node = $merged_xml->addChild('events');
 
     // Add unique courses
+    $course_count = 0;
     foreach ($courses_xml->xpath('//Courses') as $course) {
         $code = (string)$course->code;
         if (isset($course_codes[$code])) {
@@ -304,10 +341,13 @@ function ntv_merge_data() {
                 $course_node->addChild($child->getName(), htmlspecialchars((string)$child));
             }
             unset($course_codes[$code]); // Ensure we only add it once
+            $course_count++;
         }
     }
+    ntv_log_message("Added {$course_count} unique courses");
 
     // Add unique events with matching courses
+    $event_count = 0;
     foreach ($events_xml->xpath('//Events') as $event) {
         $id = (int)$event->id;
         $code = (string)$event->code;
@@ -317,11 +357,16 @@ function ntv_merge_data() {
                 $event_node->addChild($child->getName(), htmlspecialchars((string)$child));
             }
             unset($event_ids[$id]); // Ensure we only add it once
+            $event_count++;
         }
     }
+    ntv_log_message("Added {$event_count} unique events");
 
     // Save merged file
-    if (!$merged_xml->asXML($final_file)) {
+    $merged_content = $merged_xml->asXML();
+    ntv_log_message('Merged content length: ' . strlen($merged_content));
+    
+    if (!file_put_contents($final_file, $merged_content)) {
         ntv_log_message('Failed to save merged file');
         return false;
     }
@@ -330,12 +375,7 @@ function ntv_merge_data() {
     @unlink($temp_courses);
     @unlink($temp_events);
     
-    ntv_log_message(sprintf(
-        'Merge completed: %d courses and %d events processed',
-        count($courses_node->children()),
-        count($events_node->children())
-    ));
-
+    ntv_log_message('Merge completed successfully');
     return true;
 }
 
@@ -351,7 +391,9 @@ function ntv_deactivate() {
     $files_to_clean = [
         $import_dir . '/temp_courses.xml',
         $import_dir . '/temp_events.xml',
-        $import_dir . '/courses.xml'
+        $import_dir . '/courses.xml',
+        $import_dir . '/debug_courses.xml',
+        $import_dir . '/debug_events.xml'
     ];
     
     foreach ($files_to_clean as $file) {
